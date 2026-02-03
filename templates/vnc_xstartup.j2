@@ -1,0 +1,18 @@
+#!/bin/sh
+
+# IME env (make sure IME works in VNC session)
+export LANG={{ ja_desktop_lang }}
+export GTK_IM_MODULE=ibus
+export QT_IM_MODULE=ibus
+export XMODIFIERS=@im=ibus
+
+# Start ibus explicitly (VNC session often doesn't autostart it)
+ibus-daemon -drx &
+
+# Start desktop session
+{% if item.desktop_command is defined and item.desktop_command | length > 0 -%}
+{{ item.desktop_command }} &
+{% else -%}
+# Fallback (adjust to your environment)
+startxfce4 &
+{% endif -%}

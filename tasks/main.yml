@@ -1,0 +1,80 @@
+---
+- name: Assert supported OS (CentOS Stream 9 / RHEL9 family)
+  ansible.builtin.assert:
+    that:
+      - ansible_facts.os_family == "RedHat"
+      - ansible_facts.distribution_major_version | int == 9
+    fail_msg: "This role supports RHEL9 family (CentOS Stream 9)."
+
+# --- ロケール/言語パック ---
+- name: Install Japanese langpacks
+  ansible.builtin.dnf:
+    name: "{{ ja_desktop_base_packages }}"
+    state: present
+
+- name: Set system locale via localectl
+  ansible.builtin.command: "localectl set-locale LANG={{ ja_desktop_lang }}"
+  when: ja_desktop_set_locale | bool
+  changed_when: false
+  # localectl は差分検出が難しいため、安全に no-change 扱い。
+  # 変更検知が必要なら、localectl status を事前取得して比較してください。
+
+# --- IME インストール ---
+- name: Enable EPEL for Mozc (optional)
+  ansible.builtin.dnf:
+    name: epel-release
+    state: present
+  when:
+    - ja_desktop_ime_engine == "mozc"
+    - ja_desktop_enable_epel_for_mozc | bool
+
+- name: Install IME packages (Anthy)
+  ansible.builtin.dnf:
+    name: "{{ ja_desktop_ime_packages_anthy }}"
+    state: present
+  when: ja_desktop_ime_engine == "anthy"
+
+- name: Install IME packages (Mozc)
+  ansible.builtin.dnf:
+    name: "{{ ja_desktop_ime_packages_mozc }}"
+    state: present
+  when: ja_desktop_ime_engine == "mozc"
+
+- name: Install Japanese fonts
+  ansible.builtin.dnf:
+    name: "{{ ja_desktop_font_packages }}"
+    state: present
+  when: ja_desktop_install_fonts | bool
+
+- name: Install IME env file in /etc/profile.d
+  ansible.builtin.template:
+    src: "ime_env.sh.j2"
+    dest: "{{ ja_desktop_profiled_env_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+  when: ja_desktop_install_profiled_env | bool
+
+- name: Ensure ~/.vnc directory exists
+  ansible.builtin.file:
+    path: "{{ item.home }}/.vnc"
+    state: directory
+    owner: "{{ item.name }}"
+    group: "{{ item.name }}"
+    mode: "0700"
+  loop: "{{ ja_desktop_vnc_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: ja_desktop_configure_vnc_xstartup | bool
+
+- name: Deploy ~/.vnc/xstartup
+  ansible.builtin.template:
+    src: "vnc_xstartup.j2"
+    dest: "{{ item.home }}/.vnc/xstartup"
+    owner: "{{ item.name }}"
+    group: "{{ item.name }}"
+    mode: "0700"
+  loop: "{{ ja_desktop_vnc_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: ja_desktop_configure_vnc_xstartup | bool
