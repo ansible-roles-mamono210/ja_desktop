@@ -6,7 +6,6 @@
       - ansible_facts.distribution_major_version | int == 9
     fail_msg: "This role supports RHEL9 family (CentOS Stream 9)."
 
-# --- ロケール/言語パック ---
 - name: Install Japanese langpacks
   ansible.builtin.dnf:
     name: "{{ ja_desktop_base_packages }}"
@@ -16,10 +15,7 @@
   ansible.builtin.command: "localectl set-locale LANG={{ ja_desktop_lang }}"
   when: ja_desktop_set_locale | bool
   changed_when: false
-  # localectl は差分検出が難しいため、安全に no-change 扱い。
-  # 変更検知が必要なら、localectl status を事前取得して比較してください。
 
-# --- IME インストール ---
 - name: Enable EPEL for Mozc (optional)
   ansible.builtin.dnf:
     name: epel-release
